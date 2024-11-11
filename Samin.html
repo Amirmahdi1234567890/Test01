@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title> شارژ ساختمان ثمین</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        #searchResult {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<h1>حساب و کتاب شارژ ساختمان ثمین</h1>
+
+<div>
+    <label for="unitName">جستجوی نام واحد:</label>
+    <input type="text" id="unitName" onkeyup="searchUnit()">
+    <div id="searchResult"></div>
+</div>
+
+<table id="chargingTable">
+    <thead>
+        <tr>
+            <th>نام واحد</th>
+            <th>بهار</th>
+            <th>تابستان</th>
+            <th>پاییز</th>
+            <th>زمستان</th>
+            <th>مجموع باقیمانده</th>
+            <th>عملیات</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Rows will be added dynamically here -->
+    </tbody>
+</table>
+
+<div>
+    <h3>افزودن واحد جدید</h3>
+    <label for="newUnitName">نام واحد:</label>
+    <input type="text" id="newUnitName">
+    <label for="seasonCharge">شارژ هر فصل:</label>
+    <input type="number" id="seasonCharge">
+    <button onclick="addUnit()">افزودن واحد</button>
+</div>
+
+<div>
+    <h3>پرداخت شارژ</h3>
+    <label for="payUnitName">نام واحد:</label>
+    <input type="text" id="payUnitName">
+    <label for="season">فصل:</label>
+    <select id="season">
+        <option value="spring">بهار</option>
+        <option value="summer">تابستان</option>
+        <option value="autumn">پاییز</option>
+        <option value="winter">زمستان</option>
+    </select>
+    <label for="paymentAmount">مبلغ پرداختی:</label>
+    <input type="number" id="paymentAmount">
+    <button onclick="makePayment()">پرداخت</button>
+</div>
+
+<script>
+    // Load units from localStorage
+    const units = JSON.parse(localStorage.getItem('units')) || [];
+
+    function addUnit() {
+        const unitName = document.getElementById('newUnitName').value;
+        const seasonCharge = parseInt(document.getElementById('seasonCharge').value);
+        
+        if (unitName && !isNaN(seasonCharge)) {
+            units.push({
+                name: unitName,
+                spring: seasonCharge,
+                summer: seasonCharge,
+                autumn: seasonCharge,
+                winter: seasonCharge,
+            });
+
+            localStorage.setItem('units', JSON.stringify(units)); // Save units to localStorage
+
+            document.getElementById('newUnitName').value = '';
+            document.getElementById('seasonCharge').value = '';
+            renderTable();
+        } else {
+            alert('لطفا نام واحد و مبلغ شارژ را وارد کنید.');
+        }
+    }
+
+    function makePayment() {
+        const unitName = document.getElementById('payUnitName').value;
+        const season = document.getElementById('season').value;
+        const paymentAmount = parseInt(document.getElementById('paymentAmount').value);
+        
+        const unit = units.find(u => u.name === unitName);
+        
+        if (unit && !isNaN(paymentAmount) && paymentAmount > 0) {
+            unit[season] -= paymentAmount;
+
+            if (unit[season] < 0) {
+                unit[season] = 0;
+            }
+
+            localStorage.setItem('units', JSON.stringify(units)); // Update localStorage
+
+            document.getElementById('payUnitName').value = '';
+            document.getElementById('paymentAmount').value = '';
+            renderTable();
+        } else {
+            alert('لطفا نام واحد و مبلغ صحیح را وارد کنید.');
+        }
+    }
+
+    function deleteUnit(unitName) {
+        const unitIndex = units.findIndex(u => u.name === unitName);
+        if (unitIndex > -1) {
+            units.splice(unitIndex, 1);
+            localStorage.setItem('units', JSON.stringify(units)); // Update local storage
+            renderTable();
+        }
+    }
+
+    function renderTable() {
+        // Sort units by name
+        units.sort((a, b) => a.name.localeCompare(b.name, 'fa', { numeric: true }));
+
+        const tbody = document.querySelector('#chargingTable tbody');
+        tbody.innerHTML = '';
+
+        let totalSpring = 0, totalSummer = 0, totalAutumn = 0, totalWinter = 0;
+
+        units.forEach(unit => {
+            const totalRemaining = unit.spring + unit.summer + unit.autumn + unit.winter;
+            totalSpring += unit.spring;
+            totalSummer += unit.summer;
+            totalAutumn += unit.autumn;
+            totalWinter += unit.winter;
+
+            tbody.innerHTML += `
+                <tr>
+                    <td>${unit.name}</td>
+                    <td>${unit.spring}</td>
+                    <td>${unit.summer}</td>
+                    <td>${unit.autumn}</td>
+                    <td>${unit.winter}</td>
+                    <td>${totalRemaining}</td>
+                    <td><button onclick="deleteUnit('${unit.name}')">حذف</button></td>
+                </tr>
+            `;
+        });
+
+        // Add totals row
+        tbody.innerHTML += `
+            <tr>
+                <td><strong>جمع</strong></td>
+                <td>${totalSpring}</td>
+                <td>${totalSummer}</td>
+                <td>${totalAutumn}</td>
+                <td>${totalWinter}</td>
+                <td>${totalSpring + totalSummer + totalAutumn + totalWinter}</td>
+                <td></td>
+            </tr>
+        `;
+    }
+
+    function searchUnit() {
+        const input = document.getElementById('unitName').value.toLowerCase();
+        const rows = document.querySelectorAll('#chargingTable tbody tr');
+        const resultDiv = document.getElementById('searchResult');
+        resultDiv.innerHTML = '';
+
+        rows.forEach(row => {
+            const unitName = row.cells[0].textContent.toLowerCase();
+            const match = unitName.includes(input);
+            row.style.display = match ? '' : 'none';
+
+            if (match) {
+                resultDiv.innerHTML += `<div>${unitName}</div>`;
+            }
+        });
+    }
+
+    // Initial render of the table
+    renderTable();
+</script>
+
+</body>
+</html>
